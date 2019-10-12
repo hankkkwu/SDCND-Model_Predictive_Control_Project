@@ -15,6 +15,7 @@
 using nlohmann::json;
 using std::string;
 using std::vector;
+using Eigen::VectorXd;
 
 // For converting back and forth between radians and degrees.
 constexpr double pi() { return M_PI; }
@@ -41,37 +42,70 @@ int main() {
         string event = j[0].get<string>();
         if (event == "telemetry") {
           // j[1] is the data JSON object
-          vector<double> ptsx = j[1]["ptsx"];
+          vector<double> ptsx = j[1]["ptsx"];   // 6 points in global coordinate
           vector<double> ptsy = j[1]["ptsy"];
           double px = j[1]["x"];
           double py = j[1]["y"];
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
 
+          // std::cout << "x coordinate:" << ptsx[0] << ',' << px << std::endl;
+
+          // use px and py as origin(0,0), and orientation = 0
+          // transform ptsx and ptxy from global coordinate to vehicle coordinate
+          VectorXd x(ptsx.size());
+          VectorXd y(ptsy.size());
+
+          for (int i = 0; i < ptsx.size(); i++){
+            double shift_x = ptsx[i] - px;
+            double shift_y = ptsy[i] - py;
+            x[i] = shift_x * cos(0-psi) - shift_y * sin(0-psi);
+            y[i] = shift_x * sin(0-psi) + shift_y * cos(0-psi);
+          }
+
+          // fit a polynomial to the x,y coordinates
+          auto coeffs = polyfit(x, y, 3);
+
+          // calculate the cross track error
+          double fx = polyeval(coeffs, 0);   // px = 0
+          double cte = fx - 0;               // py = 0
+
+          // calculate the orientation error
+          // derivative_coeffs = coeffs(1) + 2 * coeffs(2) * px + 3 * coeffs(3) * px * px;
+          // since px = 0:
+          double derivative_coeffs = coeffs(1);
+          double desired_psi = atan(derivative_coeffs);
+          double epsi = 0 - desired_psi;   // psi = 0
+
+          // vehicle current state:
+          VectorXd state(6);
+          state << 0, 0, 0, v, cte, epsi;
+
+          auto vars = mpc.Solve(state, coeffs);
+
           /**
            * TODO: Calculate steering angle and throttle using MPC.
            * Both are in between [-1, 1].
            */
-          double steer_value;
-          double throttle_value;
+          double steer_value = vars[0] / deg2rad(25);
+          double throttle_value = vars[1];
 
           json msgJson;
-          // NOTE: Remember to divide by deg2rad(25) before you send the 
-          //   steering value back. Otherwise the values will be in between 
+          // NOTE: Remember to divide by deg2rad(25) before you send the
+          //   steering value back. Otherwise the values will be in between
           //   [-deg2rad(25), deg2rad(25] instead of [-1, 1].
           msgJson["steering_angle"] = steer_value;
           msgJson["throttle"] = throttle_value;
 
-          // Display the MPC predicted trajectory 
+          // Display the MPC predicted trajectory
           vector<double> mpc_x_vals;
           vector<double> mpc_y_vals;
 
           /**
-           * TODO: add (x,y) points to list here, points are in reference to 
-           *   the vehicle's coordinate system the points in the simulator are 
+           * TODO: add (x,y) points to list here, points are in reference to
+           *   the vehicle's coordinate system the points in the simulator are
            *   connected by a Green line
            */
-
           msgJson["mpc_x"] = mpc_x_vals;
           msgJson["mpc_y"] = mpc_y_vals;
 
@@ -80,14 +114,17 @@ int main() {
           vector<double> next_y_vals;
 
           /**
-           * TODO: add (x,y) points to list here, points are in reference to 
-           *   the vehicle's coordinate system the points in the simulator are 
+           * TODO: add (x,y) points to list here, points are in reference to
+           *   the vehicle's coordinate system the points in the simulator are
            *   connected by a Yellow line
            */
+          for (int i = 0; i < 30; i++){
+            next_x_vals.push_back(i*3);
+            next_y_vals.push_back(polyeval(coeffs, i));
+          }
 
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;
-
 
           auto msg = "42[\"steer\"," + msgJson.dump() + "]";
           std::cout << msg << std::endl;
@@ -127,6 +164,6 @@ int main() {
     std::cerr << "Failed to listen to port" << std::endl;
     return -1;
   }
-  
+
   h.run();
 }
