@@ -44,14 +44,18 @@ int main() {
           // j[1] is the data JSON object
           vector<double> ptsx = j[1]["ptsx"];   // 6 points in global coordinate
           vector<double> ptsy = j[1]["ptsy"];
-          double px = j[1]["x"];
+          double px = j[1]["x"];                // also in global coordinate
           double py = j[1]["y"];
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
+          double delta = j[1]["steering_angle"];
+          double a = j[1]["throttle"];
+
+          const double Lf = 2.67;
 
           // std::cout << "x coordinate:" << ptsx[0] << ',' << px << std::endl;
 
-          // use px and py as origin(0,0), and orientation = 0
+          // use px and py as origin(0,0), and psi = 0
           // transform ptsx and ptxy from global coordinate to vehicle coordinate
           VectorXd x(ptsx.size());
           VectorXd y(ptsy.size());
@@ -77,9 +81,19 @@ int main() {
           double desired_psi = atan(derivative_coeffs);
           double epsi = 0 - desired_psi;   // psi = 0
 
-          // vehicle current state:
+          // Latency (100ms latency = 0.1 seconds)
+          // Instead of using the current state, we use the state that is 100ms in the future
+          const double latency = 0.1;
+          px = 0 + v * cos(0) * latency;
+          py = 0 + v * sin(0) * latency;
+          psi = 0 + v / Lf * -delta * latency;   // delta from the simulator is in the opposite direction
+          v += a * latency;
+          cte += v * sin(epsi) * latency;
+          epsi += v / Lf * -delta * latency;
+
           VectorXd state(6);
-          state << 0, 0, 0, v, cte, epsi;
+
+          state << px, py, psi, v, cte, epsi;
 
           auto vars = mpc.Solve(state, coeffs);
 
@@ -94,7 +108,7 @@ int main() {
           // NOTE: Remember to divide by deg2rad(25) before you send the
           //   steering value back. Otherwise the values will be in between
           //   [-deg2rad(25), deg2rad(25] instead of [-1, 1].
-          msgJson["steering_angle"] = steer_value;
+          msgJson["steering_angle"] = -steer_value;   // because steering value from the simulator is in the opposite direction
           msgJson["throttle"] = throttle_value;
 
           // Display the MPC predicted trajectory
@@ -106,6 +120,10 @@ int main() {
            *   the vehicle's coordinate system the points in the simulator are
            *   connected by a Green line
            */
+          for(int i = 2; i < vars.size(); i+=2){
+            mpc_x_vals.push_back(vars[i]);
+            mpc_y_vals.push_back(vars[i+1]);
+          }
           msgJson["mpc_x"] = mpc_x_vals;
           msgJson["mpc_y"] = mpc_y_vals;
 
@@ -118,8 +136,9 @@ int main() {
            *   the vehicle's coordinate system the points in the simulator are
            *   connected by a Yellow line
            */
-          for (int i = 0; i < 30; i++){
-            next_x_vals.push_back(i*3);
+          int num_waypoints = 61;
+          for (int i = 4; i < num_waypoints; i+=4){
+            next_x_vals.push_back(i);
             next_y_vals.push_back(polyeval(coeffs, i));
           }
 
