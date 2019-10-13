@@ -3,6 +3,42 @@ Self-Driving Car Engineer Nanodegree Program
 
 ---
 
+## Result video
+
+[![](https://i9.ytimg.com/vi/7U1u-J4k2Cc/mqdefault.jpg?time=1570976601673&sqp=CJDljO0F&rs=AOn4CLAMgnRWVQ_sJr_aIdSb4Qs-BM2unQ)](https://youtu.be/7U1u-J4k2Cc)
+
+## Model predictive Control
+Model predictive control (MPC) is an advanced method of process control that is used to control a process while satisfying a set of constraints. In this case it reframes the task of following a trajectory as an optimization problem.
+
+Model predictive control involves simulating different actuator inputs, predicting the result trajectory and selecting that trajectory with a minimum cost. Once we found the lowest cost trajectory, we implement the first set of actuation commands, and throw away the rest of the trajectory we calculated, then we use the new state and use that to calculate a new trajectory.
+
+
+## MPC algorithm
+* Define T(prediction horizon), by choosing N(number of timesteps) and dt(timestep duration).
+
+  The relation of them is : **`T = N * dt`**
+
+  Theoretically, T should be as large as possible, while dt should be as small as possible. But in the case of driving, if T is too large , the environment might change enough that it won't make sense to predict any further into the future. In the case of driving in simulator, setting **T = 1** second is reasonable. For dt and N, a large velue of dt would result in less frequent actuations, which makes it harder to accurately approximate a continuous reference trajectory. After some experiment, I found that **dt = 0.05** and **N = 20** works pretty well.
+
+* Define the vehicle model.
+  In this projecet I use the kinematic model, the state of vehicle can be defined as **[x, y, psi, v, cte, epsi]**, where x, y are the current position of the vehicle, psi is the heading direction, v is the velocity, cte is the cross track error and epsi is the orientation error.  
+
+* Define the vehicle constraints.
+  In a real vehicle, actuators are limited by the design of the vehicle in fundamental physics, such as steering angle and acceleration, in this project we set the **steering angle = [-25°, 25°]** and **acceleration = [-1, 1]** (-1: full brake, 1: full acceleration).
+
+* Define a cost function.
+  Cost function can be the errors we would like to minimize. We already captured 2 errors in our state(cte and epsi). But it is not limited to the state, we could also include the control inputs(steering angle and acceleration), such as the magnitude of the inputs and the change rate of the inputs.
+
+* Finally, begin the state feedback loop:
+  **vehicle current state  ->  MPC solver  ->  vehicle control inputs**
+
+
+## Latency problem
+In a real vehicle, an actuation command won't execute instantly, there will be a delay as the command propagate through the system, this problem is called **latency**, a realistic delay might be on the order of 100 milliseconds.
+In this project we set the latency to 100ms. To deal with this problem, I don't use the current state, instead I use the state that is 100ms in the future.
+
+
+
 ## Dependencies
 
 * cmake >= 3.5
@@ -54,63 +90,3 @@ is the vehicle offset of a straight line (reference). If the MPC implementation 
 2. The `lake_track_waypoints.csv` file has waypoints of the lake track. This could fit polynomials and points and see of how well your model tracks curve. NOTE: This file might be not completely in sync with the simulator so your solution should NOT depend on it.
 3. For visualization this C++ [matplotlib wrapper](https://github.com/lava/matplotlib-cpp) could be helpful.)
 4.  Tips for setting up your environment are available [here](https://classroom.udacity.com/nanodegrees/nd013/parts/40f38239-66b6-46ec-ae68-03afd8a601c8/modules/0949fca6-b379-42af-a919-ee50aa304e6a/lessons/f758c44c-5e40-4e01-93b5-1a82aa4e044f/concepts/23d376c7-0195-4276-bdf0-e02f1f3c665d)
-5. **VM Latency:** Some students have reported differences in behavior using VM's ostensibly a result of latency.  Please let us know if issues arise as a result of a VM environment.
-
-## Editor Settings
-
-We have kept editor configuration files out of this repo to
-keep it as simple and environment agnostic as possible. However, we recommend
-using the following settings:
-
-* indent using spaces
-* set tab width to 2 spaces (keeps the matrices in source code aligned)
-
-## Code Style
-
-Please (do your best to) stick to [Google's C++ style guide](https://google.github.io/styleguide/cppguide.html).
-
-## Project Instructions and Rubric
-
-Note: regardless of the changes you make, your project must be buildable using
-cmake and make!
-
-More information is only accessible by people who are already enrolled in Term 2
-of CarND. If you are enrolled, see [the project page](https://classroom.udacity.com/nanodegrees/nd013/parts/40f38239-66b6-46ec-ae68-03afd8a601c8/modules/f1820894-8322-4bb3-81aa-b26b3c6dcbaf/lessons/b1ff3be0-c904-438e-aad3-2b5379f0e0c3/concepts/1a2255a0-e23c-44cf-8d41-39b8a3c8264a)
-for instructions and the project rubric.
-
-## Hints!
-
-* You don't have to follow this directory structure, but if you do, your work
-  will span all of the .cpp files here. Keep an eye out for TODOs.
-
-## Call for IDE Profiles Pull Requests
-
-Help your fellow students!
-
-We decided to create Makefiles with cmake to keep this project as platform
-agnostic as possible. We omitted IDE profiles to ensure
-students don't feel pressured to use one IDE or another.
-
-However! I'd love to help people get up and running with their IDEs of choice.
-If you've created a profile for an IDE you think other students would
-appreciate, we'd love to have you add the requisite profile files and
-instructions to ide_profiles/. For example if you wanted to add a VS Code
-profile, you'd add:
-
-* /ide_profiles/vscode/.vscode
-* /ide_profiles/vscode/README.md
-
-The README should explain what the profile does, how to take advantage of it,
-and how to install it.
-
-Frankly, I've never been involved in a project with multiple IDE profiles
-before. I believe the best way to handle this would be to keep them out of the
-repo root to avoid clutter. Most profiles will include
-instructions to copy files to a new location to get picked up by the IDE, but
-that's just a guess.
-
-One last note here: regardless of the IDE used, every submitted project must
-still be compilable with cmake and make./
-
-## How to write a README
-A well written README file can enhance your project and portfolio and develop your abilities to create professional README files by completing [this free course](https://www.udacity.com/course/writing-readmes--ud777).
