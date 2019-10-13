@@ -12,7 +12,7 @@ using Eigen::VectorXd;
 /**
  * TODO: Set the timestep length and duration
  */
-size_t N = 30;
+size_t N = 20;
 double dt = 0.05;
 
 // This value assumes the model presented in the classroom is used.
@@ -39,7 +39,7 @@ size_t delta_start = epsi_start + N;
 size_t a_start = delta_start + N-1;
 
 // reference velocity
-ref_v = 60;
+double ref_v = 61;
 
 class FG_eval {
  public:
@@ -61,6 +61,8 @@ class FG_eval {
     fg[0] = 0;
 
     // Reference state cost
+    double delta_weight = 1000;   // for smooth steering
+    double a_weight = 100;        // for smooth acceleration
     for (int t = 0; t < N; t++){
       fg[0] += CppAD::pow(vars[cte_start+t], 2);
       fg[0] += CppAD::pow(vars[epsi_start+t], 2);
@@ -68,13 +70,13 @@ class FG_eval {
     }
 
     for (int t = 0; t < N-1; t++){
-      fg[0] += CppAD::pow(vars[delta_start+t], 2);
+      fg[0] += delta_weight * CppAD::pow(vars[delta_start+t], 2);
       fg[0] += CppAD::pow(vars[a_start+t], 2);
     }
 
     for (int t = 0; t < N-2; t++){
-      fg[0] += 1000 * CppAD::pow(vars[delta_start+t+1] - vars[delta_start+t], 2);
-      fg[0] += CppAD::pow(vars[a_start+t+1] - vars[a_start+t], 2);
+      fg[0] += delta_weight * CppAD::pow(vars[delta_start+t+1] - vars[delta_start+t], 2);
+      fg[0] += a_weight * CppAD::pow(vars[a_start+t+1] - vars[a_start+t], 2);
     }
 
     // Setup constraints
@@ -99,21 +101,20 @@ class FG_eval {
       AD<double> y0 = vars[y_start+t-1];
       AD<double> psi0 = vars[psi_start+t-1];
       AD<double> v0 = vars[v_start+t-1];
-      AD<double> cte0 = vars[cte_start+t-1];
       AD<double> epsi0 = vars[epsi_start+t-1];
       AD<double> delta0 = vars[delta_start+t-1];
       AD<double> a0 = vars[a_start+t-1];
 
-      double f0 = coeffs[0] + coeffs[1] * x0 + coeffs[2] * x0 * x0 + coeffs[3] * CppAD::pow(x0, 3);
-      double derivative_coeffs = coeffs[1] + 2 * coeffs[2] * x0 + 3 * coeffs[3] * x0 * x0;
-      double desired_psi = CppAD::atan(derivative_coeffs);
+      AD<double> f0 = coeffs[0] + coeffs[1] * x0 + coeffs[2] * x0 * x0 + coeffs[3] * CppAD::pow(x0, 3);
+      AD<double> derivative_coeffs = coeffs[1] + 2 * coeffs[2] * x0 + 3 * coeffs[3] * x0 * x0;
+      AD<double> desired_psi = CppAD::atan(derivative_coeffs);
 
       fg[1+x_start+t] = x1 - (x0 + v0 * CppAD::cos(psi0) * dt);
       fg[1+y_start+t] = y1 - (y0 + v0 * CppAD::sin(psi0) * dt);
-      fg[1+psi_start+t] = psi1 - (psi0 + vo / Lf * delta0 *dt);
+      fg[1+psi_start+t] = psi1 - (psi0 + v0 / Lf * delta0 *dt);
       fg[1+v_start+t] = v1 - (v0 + a0 * dt);
       fg[1+cte_start+t] = cte1 - (f0 - y0 + v0 * CppAD::sin(epsi0) * dt);
-      fg[1+epsi_start+t] = epsi1 - (epsi0 - desired_psi + v0 / Lf * delta0 * dt);
+      fg[1+epsi_start+t] = epsi1 - (psi0 - desired_psi + v0 / Lf * delta0 * dt);
     }
   }
 };
@@ -250,5 +251,12 @@ std::vector<double> MPC::Solve(const VectorXd &state, const VectorXd &coeffs) {
    * {...} is shorthand for creating a vector, so auto x1 = {1.0,2.0}
    *   creates a 2 element double vector.
    */
-  return {};
+  std::vector<double> result;
+  result.push_back(solution.x[delta_start]);
+  result.push_back(solution.x[a_start]);
+  for (int i = 0; i < N; i++){
+    result.push_back(solution.x[x_start+i]);
+    result.push_back(solution.x[y_start+i]);
+  }
+  return result;
 }
