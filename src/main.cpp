@@ -86,7 +86,9 @@ int main() {
           const double latency = 0.1;
           px = 0 + v * cos(0) * latency;
           py = 0 + v * sin(0) * latency;
-          psi = 0 + v / Lf * -delta * latency;   // delta from the simulator is in the opposite direction
+          psi = 0 + v / Lf * -delta * latency;      // The sign of delta needs to be inverted because we are getting j[1]["steering_angle"] from the simulator.
+                                                    // In the simulator, “left” is negative and “right” is positive, while psi is measured the other
+                                                    // way around, i.e. “left” is negative in simulator (but angles are measured counter-clockwise).
           v += a * latency;
           cte += v * sin(epsi) * latency;
           epsi += v / Lf * -delta * latency;
