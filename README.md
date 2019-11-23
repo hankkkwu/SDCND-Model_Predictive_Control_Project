@@ -5,7 +5,7 @@ Self-Driving Car Engineer Nanodegree Program
 
 ## Result video
 
-[![](https://i9.ytimg.com/vi/7U1u-J4k2Cc/mqdefault.jpg?time=1570976601673&sqp=CJDljO0F&rs=AOn4CLAMgnRWVQ_sJr_aIdSb4Qs-BM2unQ)](https://youtu.be/7U1u-J4k2Cc)
+[![](MPC.JPG)](https://youtu.be/7U1u-J4k2Cc)
 
 ## Model predictive Control
 Model predictive control (MPC) is an advanced method of process control that is used to control a process while satisfying a set of constraints. In this case it reframes the task of following a trajectory as an optimization problem.
